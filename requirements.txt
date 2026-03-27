@@ -1,0 +1,9 @@
+gradio
+opencv-python
+pillow
+scikit-image
+pyyaml
+torch
+torchaudio
+torchvision
+tqdm

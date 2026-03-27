@@ -1,0 +1,15 @@
+project_name: SustainableUrbanPix2Pix
+image_size: 256
+batch_size: 1
+accumulation_steps: 8
+epochs: 5 
+lr: 0.0002
+lambda_l1: 100
+ngf: 64
+ndf: 64
+tiny_mode: false
+green_intensity_default: 0.65
+density_default: 0.75
+checkpoint_dir: outputs/checkpoints
+sample_dir: outputs/samples
+log_dir: outputs/logs

@@ -1,0 +1,81 @@
+# -------------------------
+# Python
+# -------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+
+# -------------------------
+# Virtual Environment
+# -------------------------
+venv/
+.env/
+.env.*
+
+# -------------------------
+# VS Code / IDE
+# -------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# -------------------------
+# OS Files
+# -------------------------
+.DS_Store
+Thumbs.db
+
+# -------------------------
+# PyTorch / Models / Checkpoints
+# -------------------------
+outputs/checkpoints/
+outputs/results/
+*.pth
+*.pt
+
+# -------------------------
+# Dataset (VERY IMPORTANT)
+# -------------------------
+data/
+datasets/
+*.zip
+*.tar
+*.tar.gz
+
+# -------------------------
+# Logs / Temp
+# -------------------------
+logs/
+*.log
+temp/
+tmp/
+*.tmp
+
+# -------------------------
+# Gradio cache
+# -------------------------
+gradio_cached_examples/
+
+# -------------------------
+# Jupyter (if used)
+# -------------------------
+.ipynb_checkpoints/
+
+# -------------------------
+# Large images (optional)
+# -------------------------
+*.png
+*.jpg
+*.jpeg
+
+# (optional: comment above if you WANT to keep sample images)
+
+# -------------------------
+# System / Build
+# -------------------------
+build/
+dist/
+*.egg-info/
