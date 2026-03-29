@@ -1,88 +1,72 @@
-# filename: app.py
+# app.py
 
 import gradio as gr
 from src.inference.infer import run_inference
 import tempfile
-import os
 import traceback
 
 
 def generate_layout(sketch, green_intensity, building_density, use_canny):
     if sketch is None:
-        return None
+        return None, {}
 
     try:
-        # ✅ Create temp file safely (Windows compatible)
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
         tmp_path = tmp.name
-        tmp.close()  # 🔥 VERY IMPORTANT (releases file lock)
+        tmp.close()
 
-        # Save sketch
         sketch.save(tmp_path)
 
-        # Run inference
-        result = run_inference(
+        result, metrics = run_inference(
             tmp_path,
             green_intensity,
             building_density,
             use_canny=use_canny
         )
 
-        return result
+        return result, metrics
 
     except Exception as e:
-        print("\n❌ ERROR IN APP:")
+        print("\n❌ ERROR:")
         traceback.print_exc()
-        return None
+        return None, {}
 
 
 with gr.Blocks(title="SustainableUrbanPix2Pix") as demo:
     gr.Markdown(
         "# 🌆 Sustainable Urban Layout Generator\n"
-        "Convert your hand-drawn city plans into photorealistic sustainable designs.\n"
+        "Convert sketches → photorealistic sustainable cities\n"
         "**Optimized for GTX 1050 Ti**"
     )
 
-    with gr.Row():
-        with gr.Column():
-            input_image = gr.Image(
-                type="pil",
-                label="Upload Raw Hand-Drawn Plan (JPG/PNG)"
-            )
+    with gr.Tabs():
 
-            use_canny = gr.Checkbox(
-                label="Apply Canny Edge Cleaning",
-                value=True
-            )
+        # ---------------------------
+        # 🎨 GENERATOR TAB
+        # ---------------------------
+        with gr.Tab("🎨 Generator"):
+            with gr.Row():
+                with gr.Column():
+                    input_image = gr.Image(type="pil", label="Upload Sketch")
+                    use_canny = gr.Checkbox(label="Apply Canny", value=True)
+                    green_slider = gr.Slider(0, 1, 0.65, label="Green Intensity")
+                    density_slider = gr.Slider(0, 1, 0.75, label="Building Density")
 
-            green_slider = gr.Slider(
-                0.0, 1.0,
-                value=0.65,
-                step=0.05,
-                label="Green Intensity (Parks & Trees)"
-            )
+                with gr.Column():
+                    output_image = gr.Image(label="Generated Output")
 
-            density_slider = gr.Slider(
-                0.0, 1.0,
-                value=0.75,
-                step=0.05,
-                label="Building Density (Lower = More Open Space)"
-            )
+        # ---------------------------
+        # 🎯 METRICS TAB
+        # ---------------------------
+        with gr.Tab("🎯 Metrics Dashboard"):
+            metrics_output = gr.JSON(label="Generation Metrics")
 
-        with gr.Column():
-            output_image = gr.Image(
-                label="Generated Photorealistic Sustainable Layout"
-            )
-
-    btn = gr.Button(
-        "Generate Sustainable Urban Layout",
-        variant="primary"
-    )
+    btn = gr.Button("Generate", variant="primary")
 
     btn.click(
         generate_layout,
         inputs=[input_image, green_slider, density_slider, use_canny],
-        outputs=output_image
+        outputs=[output_image, metrics_output]
     )
 
 
