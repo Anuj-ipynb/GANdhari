@@ -1,15 +1,43 @@
-project_name: SustainableUrbanPix2Pix
+# config.yaml
+project_name: SustainableUrbanPix2Pix_v2
+
+# Image & Training Settings
 image_size: 256
 batch_size: 1
 accumulation_steps: 8
-epochs: 50
-lr: 0.0002
-lambda_l1: 100
-ngf: 64
+
+# Training Duration & Learning Rate (Fine-tuning friendly)
+epochs: 50                    # Change to 30-40 when fine-tuning from checkpoint
+lr: 0.00005                  # Lower LR recommended for fine-tuning from checkpoint_final.pth
+
+# Loss Weights
+lambda_l1: 120                # Increased slightly for better structure
+lambda_perc: 15               # New: Perceptual (VGG) loss weight - very important
+
+# Model Architecture
+ngf: 32                       # Keep small for 4GB VRAM (was 64, now 32)
 ndf: 64
-tiny_mode: false
-green_intensity_default: 0.65
-density_default: 0.75
+
+# Training Mode
+tiny_mode: true               # Enables lighter generator
+
+# Default Inference Parameters
+green_intensity_default: 0.60
+density_default: 0.70
+
+# Paths
 checkpoint_dir: outputs/checkpoints
 sample_dir: outputs/samples
 log_dir: outputs/logs
+result_dir: outputs/results
+
+# Resume Settings
+resume_checkpoint: "checkpoint_final.pth"   # Your existing 100-epoch checkpoint
+
+# Perceptual Loss Settings
+use_perceptual_loss: true
+perceptual_layers: [3, 8, 17, 26, 35]     # VGG feature layers
+
+# Optimization
+use_amp: true
+grad_accumulation: true
