@@ -1,144 +1,191 @@
+# 🌆 SustainableUrbanPix2Pix
 
-# SustainableUrbanPix2Pix
-
-**Sketch-to-Photorealistic Urban Layouts for Sustainable City Planning**  
-*Using Conditional Pix2Pix GAN optimized for low-end hardware*
+An AI-powered urban planning assistant that converts **semantic city layouts into realistic images** and evaluates their **sustainability** using computer vision and GANs.
 
 ---
 
-## 📋 Project Overview
+## 🚀 Overview
 
-This project implements a **conditional Pix2Pix GAN** that converts raw hand-drawn urban plans (JPG/PNG sketches) into photorealistic sustainable city layouts.  
+**SustainableUrbanPix2Pix** is a Pix2Pix-based Generative Adversarial Network (GAN) trained on the Cityscapes dataset. It generates realistic urban scenes from semantic segmentation maps and computes meaningful urban metrics such as:
 
-It allows users to control **green intensity** (more parks & trees) and **building density** to generate climate-responsive urban designs — ideal for sustainable city planning visualizations.
+* 🌳 Green Coverage
+* 🏢 Building Density
+* 🛣️ Road Coverage
+* ♻️ Sustainability Score
 
-### Key Features
-- Supports raw hand-drawn architectural drafts and sketches
-- Built-in Canny edge preprocessing for messy drawings
-- Controllable sustainability parameters (Green Intensity & Building Density)
-- Heavily optimized for **GTX 1050 Ti 4GB VRAM + 16GB RAM**
-- Professional modular code structure
-- Ready for academic technical report on GAN variants
+The system helps visualize and analyze urban layouts for better planning decisions.
 
 ---
 
-## 🛠️ Hardware Compatibility
-- **GPU**: GTX 1050 Ti (4GB VRAM)
-- **RAM**: 16GB System RAM
-- **Optimizations Used**: Automatic Mixed Precision (AMP), Gradient Checkpointing, Gradient Accumulation, Tiny Mode (ngf=32)
+## 🧠 Key Features
+
+* 🎨 **Semantic → Real Image Generation** using Pix2Pix GAN
+* 📊 **Urban Metrics Extraction** (green, roads, buildings)
+* ♻️ **Sustainability Scoring System**
+* 🖥️ **Interactive Gradio Dashboard**
+* ⚡ **Optimized for Low VRAM (GTX 1050 Ti)**
+* 🔧 **Robust Post-Processing Pipeline for Image Enhancement**
 
 ---
 
-## 📥 Installation & Setup
+## 🏗️ Model Architecture
 
-### 1. Clone / Download Project
-```powershell
-# If you created it via script, just navigate to the folder
-cd SustainableUrbanPix2Pix
+### Generator
+
+* U-Net (lightweight)
+* `ngf = 32` (optimized for low GPU memory)
+
+### Discriminator
+
+* PatchGAN
+
+### Training Setup
+
+* Dataset: Cityscapes
+* Image Size: 256×256
+* Loss: GAN Loss + L1 Loss
+* Training: 30 epochs + 10 epoch fine-tuning
+
+---
+
+## 📊 Metrics Computed
+
+| Metric                   | Description                                    |
+| ------------------------ | ---------------------------------------------- |
+| **SSIM**                 | Structural similarity between input and output |
+| **L1 Loss**              | Pixel-wise difference                          |
+| **Edge Consistency**     | Structural alignment                           |
+| **Green Coverage**       | Percentage of vegetation                       |
+| **Road Coverage**        | Percentage of roads                            |
+| **Building Density**     | Built-up area ratio                            |
+| **Road Connectivity**    | Connectivity of road network                   |
+| **Sustainability Score** | Combined urban quality metric                  |
+
+---
+
+## ♻️ Sustainability Score
+
+The score is computed based on:
+
+* 🌳 Higher green coverage → better
+* 🏢 Lower building density → better
+* 🛣️ Balanced road coverage → better
+* 🔗 Good connectivity → better
+
+---
+
+## 📂 Project Structure
+
+```
+src/
+├── data/              # Dataset loader
+├── models/            # Generator & Discriminator
+├── training/          # Training pipeline
+├── inference/         # Inference + post-processing
+├── utils/             # Metrics and utilities
+├── losses/            # (optional) perceptual loss
 ```
 
-### 2. Install Dependencies
-```powershell
+---
+
+## ⚙️ Installation
+
+```bash
+git clone <your-repo-url>
+cd SustainableUrbanPix2Pix
+
+python -m venv venv
+venv\Scripts\activate   # Windows
+
 pip install -r requirements.txt
 ```
 
-### 3. Download Dataset (Important)
-Download the **Cityscapes Pix2Pix Dataset** from:  
-[https://www.kaggle.com/datasets/balraj98/cityscapes-pix2pix-dataset](https://www.kaggle.com/datasets/balraj98/cityscapes-pix2pix-dataset)
+---
 
-Extract the files into:
-- `data/cityscapes/train/`
-- `data/cityscapes/val/`
+## 🧪 Training
+
+### Train from scratch
+
+```bash
+python train.py --epochs 30
+```
+
+### Fine-tune existing model
+
+```bash
+python train.py --epochs 10 --lr 0.00005
+```
 
 ---
 
-## 🚀 Usage Commands
+## 🔍 Inference
 
-### Training
-```powershell
-# Recommended: Tiny mode (safest for GTX 1050 Ti)
-python train.py --tiny
+Run the app:
 
-# Normal mode
-python train.py
-```
-
-### Launch Gradio Web Demo
-```powershell
+```bash
 python app.py
 ```
-Open browser at: `http://127.0.0.1:7860`
 
-### Inference (Command Line)
-```powershell
-python inference.py --sketch custom_sketches/my_plan.jpg --green 0.7 --density 0.6
-```
+Then:
 
----
-
-## 📁 Project Structure
-
-```
-SustainableUrbanPix2Pix/
-├── README.md
-├── requirements.txt
-├── config.yaml
-├── train.py
-├── app.py
-├── inference.py
-├── src/
-│   ├── models/           # UNetGenerator + PatchGAN
-│   ├── data/             # CityscapesDataset
-│   ├── utils/            # Preprocessing, metrics
-│   ├── training/         # Trainer class
-│   └── inference/        # Inference logic
-├── data/cityscapes/      # Dataset goes here
-├── custom_sketches/      # Put your hand-drawn plans here
-└── outputs/
-    ├── checkpoints/      # Saved model weights
-    ├── samples/          # Training generated images
-    └── results/          # Final generated layouts
-```
+1. Upload a semantic map
+2. Click generate
+3. View output + metrics
 
 ---
 
-## 📊 Report Ready Sections
+## 🎯 Results
 
-Use this project for your technical report:
-
-- **Selected GAN Variant**: Pix2Pix (Conditional GAN for Image-to-Image Translation)
-- **Architecture**: U-Net Generator + PatchGAN Discriminator
-- **Loss Functions**: Adversarial Loss + L1 Reconstruction Loss (λ=100)
-- **Optimizations**: AMP, Gradient Checkpointing, Gradient Accumulation
-- **Sustainability Features**: Conditional green intensity & density control
-- **Evaluation**: Visual results from `outputs/samples/` and `outputs/results/`
-
-**Suggested Report Sections**:
-1. Abstract
-2. Introduction to Pix2Pix GAN
-3. Methodology & Architecture
-4. Low-VRAM Optimizations
-5. Sustainability Conditioning
-6. Results & Discussion (include before/after images)
-7. Ethics & Limitations
-8. Conclusion
+* ✅ Structurally correct urban layouts
+* ⚠️ Limited texture realism (due to lightweight model)
+* ✅ Reliable sustainability metrics
 
 ---
 
-## 📝 Tips for Best Results
+## ⚠️ Limitations
 
-- Draw plans with clear lines (roads, buildings, green areas)
-- Use **Canny Edge Cleaning** option in the Gradio app for messy sketches
-- Increase **Green Intensity** for more eco-friendly layouts
-- Lower **Building Density** to reduce urban heat island effect
+* Blurry textures due to lightweight architecture
+* Checkerboard artifacts (partially mitigated)
+* Not photorealistic (focus is structural accuracy)
 
 ---
 
-## 🔗 References
+## 🚀 Future Improvements
 
-- Isola et al. (2017). Image-to-Image Translation with Conditional Adversarial Networks.
-- Cityscapes Pix2Pix Dataset: https://www.kaggle.com/datasets/balraj98/cityscapes-pix2pix-dataset
+* Replace ConvTranspose with Upsampling (reduce artifacts)
+* Add super-resolution module
+* Improve UI with layout editing tools
+* Add multi-layout comparison
+* Integrate diffusion-based refinement
+* Export PDF reports for urban analysis
 
+---
 
-```
+## 🧠 Real-World Applications
 
+* Urban planning & smart city design
+* Sustainability analysis
+* Infrastructure simulation
+* Educational visualization tools
+
+---
+
+## 🏆 Conclusion
+
+This project demonstrates how GANs can be used not just for image generation, but as **decision-support tools** for real-world problems like urban sustainability.
+
+---
+
+## 👨‍💻 Author
+
+Developed as an academic project using deep learning and computer vision techniques.
+
+---
+
+## ⭐ Acknowledgements
+
+* Cityscapes Dataset
+* Pix2Pix (Isola et al.)
+* OpenCV & PyTorch
+
+---
