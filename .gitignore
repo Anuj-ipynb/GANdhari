@@ -58,6 +58,7 @@ tmp/
 # Gradio cache
 # -------------------------
 gradio_cached_examples/
+.Gradio
 
 # -------------------------
 # Jupyter (if used)
@@ -79,3 +80,4 @@ gradio_cached_examples/
 build/
 dist/
 *.egg-info/
+

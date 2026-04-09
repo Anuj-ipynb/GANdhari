@@ -1,122 +1,132 @@
 # src/inference/infer.py
+
 import torch
+import numpy as np
+import cv2
 from PIL import Image
 import torchvision.transforms as transforms
 import os
-import cv2
-import numpy as np
 
 from src.models.generator import UNetGenerator
 from src.utils.metrics import compute_enhanced_metrics
 
 
-def canny_preprocess(image_path: str):
-    img = cv2.imread(image_path)
-    if img is None:
-        raise FileNotFoundError(f"Could not read {image_path}")
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    gray = cv2.equalizeHist(gray)
-    edges = cv2.Canny(gray, 30, 150)
-    return cv2.cvtColor(edges, cv2.COLOR_GRAY2RGB)
+# ---------------------------
+# Tensor → Image
+# ---------------------------
+def tensor_to_image(tensor):
+    img = tensor.detach().cpu().numpy()
+    img = np.transpose(img, (1, 2, 0))
+
+    img = (img + 1) / 2
+    img = np.clip(img, 0, 1)
+
+    return (img * 255).astype(np.uint8)
 
 
+# ---------------------------
+# 🔥 FINAL POST-PROCESSING PIPELINE
+# ---------------------------
+def post_process(img):
+    # --- 1. Gamma correction ---
+    gamma = 1.5
+    invGamma = 1.0 / gamma
+    table = np.array([
+        ((i / 255.0) ** invGamma) * 255 for i in np.arange(256)
+    ]).astype("uint8")
+    img = cv2.LUT(img, table)
+
+    # --- 2. Contrast boost ---
+    img = cv2.convertScaleAbs(img, alpha=1.3, beta=15)
+
+    # --- 3. CLAHE (balanced) ---
+    lab = cv2.cvtColor(img, cv2.COLOR_RGB2LAB)
+    l, a, b = cv2.split(lab)
+    clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
+    l = clahe.apply(l)
+    img = cv2.cvtColor(cv2.merge((l, a, b)), cv2.COLOR_LAB2RGB)
+
+    # --- 4. Color enhancement ---
+    hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
+    h, s, v = cv2.split(hsv)
+    s = np.clip(s * 1.2, 0, 255).astype(np.uint8)
+    v = np.clip(v * 1.1, 0, 255).astype(np.uint8)
+    img = cv2.cvtColor(cv2.merge((h, s, v)), cv2.COLOR_HSV2RGB)
+
+    # --- 5. Anti-checkerboard smoothing ---
+    img = cv2.medianBlur(img, 3)
+
+    # --- 6. Sharpen (controlled) ---
+    kernel = np.array([
+        [0, -1, 0],
+        [-1, 4.2, -1],
+        [0, -1, 0]
+    ])
+    sharp = cv2.filter2D(img, -1, kernel)
+
+    # Blend sharpened + original (important)
+    img = cv2.addWeighted(img, 0.7, sharp, 0.3, 0)
+
+    # --- 7. Final slight blur (artifact suppression) ---
+    img = cv2.GaussianBlur(img, (3, 3), 0)
+
+    return img
+
+
+# ---------------------------
+# 🔥 MAIN INFERENCE
+# ---------------------------
 def run_inference(
-    sketch_path: str,
-    green_intensity: float = 0.65,
-    density: float = 0.75,
-    checkpoint_path: str = "outputs/checkpoints/checkpoint_final.pth",
-    use_canny: bool = True
+    sketch_path,
+    checkpoint_path="outputs/checkpoints/checkpoint_final.pth"
 ):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Device: {device}")
 
     G = UNetGenerator(ngf=32).to(device)
 
-    # Load checkpoint
-    if os.path.exists(checkpoint_path):
-        ckpt = torch.load(checkpoint_path, map_location=device)
-        if isinstance(ckpt, dict) and "G" in ckpt:
-            G.load_state_dict(ckpt["G"])
-            print(f"✅ Loaded NEW checkpoint: {checkpoint_path}")
-        else:
-            G.load_state_dict(ckpt)
-            print(f"✅ Loaded checkpoint: {checkpoint_path}")
-    else:
-        print(f"❌ Checkpoint not found: {checkpoint_path}")
+    if not os.path.exists(checkpoint_path):
         return None, {"error": "Checkpoint not found"}
 
+    ckpt = torch.load(checkpoint_path, map_location=device)
+    G.load_state_dict(ckpt["G"] if "G" in ckpt else ckpt)
     G.eval()
 
     try:
-        # === ROBUST INPUT PREPROCESSING (handles many sketch types) ===
-        if use_canny:
-            sketch_np = canny_preprocess(sketch_path)
-            sketch = Image.fromarray(sketch_np)
-        else:
-            sketch = Image.open(sketch_path).convert("RGB")
+        sketch = Image.open(sketch_path).convert("RGB")
 
         transform = transforms.Compose([
             transforms.Resize((256, 256)),
             transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+            transforms.Normalize((0.5, 0.5, 0.5),
+                                 (0.5, 0.5, 0.5))
         ])
 
         input_tensor = transform(sketch).unsqueeze(0).to(device)
 
-        # Inference
-        with torch.no_grad(), torch.amp.autocast("cuda"):
-            output = G(input_tensor)
+        with torch.no_grad():
+            output = G(input_tensor)[0]
 
-        output = (output * 0.5 + 0.5).clamp(0, 1).cpu()
-        result_img = transforms.ToPILImage()(output[0])
+        # Convert
+        img = tensor_to_image(output)
 
-        # === STRONG POST-PROCESSING (makes outputs usable) ===
-        result_cv = np.array(result_img)
-        clahe = cv2.createCLAHE(clipLimit=6.0, tileGridSize=(8,8))
-        gray = cv2.cvtColor(result_cv, cv2.COLOR_RGB2GRAY)
-        enhanced = clahe.apply(gray)
-        result_cv = cv2.cvtColor(enhanced, cv2.COLOR_GRAY2RGB)
+        # 🔥 Apply FINAL post-processing
+        img = post_process(img)
 
-        # Sharpening
-        kernel = np.array([[-1,-1,-1], [-1,9,-1], [-1,-1,-1]])
-        result_cv = cv2.filter2D(result_cv, -1, kernel)
-
-        result_cv = cv2.morphologyEx(result_cv, cv2.MORPH_CLOSE, np.ones((3,3), np.uint8))
-        result_img = Image.fromarray(result_cv)
+        result_img = Image.fromarray(img)
 
         # Save
         os.makedirs("outputs/results", exist_ok=True)
-        save_path = "outputs/results/generated_sustainable_layout.png"
+        save_path = "outputs/results/generated.png"
         result_img.save(save_path)
-        print(f"✅ Image saved: {save_path}")
 
-        # Metrics
-        raw_metrics = compute_enhanced_metrics(sketch, result_img)
-        clean_metrics = {
-            "building_density": round(raw_metrics.get("building_density", 0) * 100, 2),
-            "road_coverage": round(raw_metrics.get("road_coverage", 0) * 100, 2),
-            "green_coverage": round(raw_metrics.get("green_coverage", 0) * 100, 2),
-            "osr_proxy": round(raw_metrics.get("osr_proxy", 0), 3),
-            "road_connectivity": round(raw_metrics.get("road_connectivity", 0), 3),
-            "building_compactness": round(raw_metrics.get("building_compactness", 1.0), 3),
-            "sustainability_score": round(raw_metrics.get("sustainability_score", 50.0), 2),
+        # ✅ FIXED METRICS (correct inputs)
+        metrics = compute_enhanced_metrics(sketch, result_img)
 
-            "Green Coverage": round(raw_metrics.get("green_coverage", 0), 4),
-            "Building Density": round(raw_metrics.get("building_density", 0), 4),
-            "Road Coverage": round(raw_metrics.get("road_coverage", 0), 4),
-            "Sustainability Score": round(raw_metrics.get("sustainability_score", 50.0), 2),
+        # JSON-safe conversion
+        metrics = {k: float(v) if isinstance(v, (np.floating, np.integer)) else v
+                   for k, v in metrics.items()}
 
-            "SSIM": raw_metrics.get("SSIM"),
-            "L1": raw_metrics.get("L1"),
-            "Edge Consistency": raw_metrics.get("Edge Consistency")
-        }
-
-        print(f"✅ Metrics → Score: {clean_metrics['sustainability_score']:.1f} | Green: {clean_metrics['green_coverage']}%")
-
-        return result_img, clean_metrics
+        return result_img, metrics
 
     except Exception as e:
-        print(f"❌ ERROR: {e}")
-        import traceback
-        traceback.print_exc()
         return None, {"error": str(e)}

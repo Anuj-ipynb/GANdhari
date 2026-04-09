@@ -9,163 +9,168 @@ import plotly.graph_objects as go
 import os
 import numpy as np
 
+
 # -----------------------------
-# 🧠 Enhanced Insight Engine
+# 🧠 Insight Engine (FIXED LOGIC)
 # -----------------------------
 def interpret(metrics):
     if not metrics or "error" in metrics:
         return "Error generating metrics."
 
-    g = float(metrics.get("green_coverage", 0))
-    d = float(metrics.get("building_density", 0))
-    r = float(metrics.get("road_coverage", 0))
+    g = float(metrics.get("green_coverage", 0)) * 100
+    d = float(metrics.get("building_density", 0)) * 100
+    r = float(metrics.get("road_coverage", 0)) * 100
     score = float(metrics.get("sustainability_score", 50))
-    conn = float(metrics.get("road_connectivity", 0.5))
+    conn = float(metrics.get("road_connectivity", 0))
 
     msg = []
 
-    if g < 25:
-        msg.append("⚠️ CRITICAL: Very low green coverage (<25%). High Urban Heat Island risk in Bengaluru. Add pocket parks and green corridors.")
-    elif g < 35:
-        msg.append("⚠️ WARNING: Moderate green space. Recommend tree-lined streets and rooftop gardens.")
+    if g < 15:
+        msg.append("⚠️ CRITICAL: Very low green coverage. Add parks, trees, and green corridors.")
+    elif g < 30:
+        msg.append("⚠️ WARNING: Moderate green space. Increase vegetation for better livability.")
 
-    if d > 45:
-        msg.append("⚠️ WARNING: High building density (>45%). Risk of overcrowding. Consider vertical mixed-use.")
+    if d > 60:
+        msg.append("⚠️ WARNING: High building density. Risk of overcrowding.")
 
-    if r < 12:
-        msg.append("⚠️ CRITICAL: Poor road coverage (<12%). Improve grid connectivity.")
+    if r > 70:
+        msg.append("⚠️ WARNING: Excessive road coverage. Reduce paved areas.")
 
-    if conn > 0.8:
-        msg.append("⚠️ NOTE: Fragmented road network. Reduce dead-ends for better walkability.")
+    if conn < 5:
+        msg.append("⚠️ WARNING: Poor road connectivity. Improve network continuity.")
 
-    if score >= 80:
+    if score >= 75:
         msg.append("✅ EXCELLENT: Highly sustainable layout.")
-    elif score >= 65:
-        msg.append("✅ GOOD: Solid foundation. Minor green/road improvements recommended.")
+    elif score >= 55:
+        msg.append("✅ GOOD: Balanced layout with room for improvement.")
     else:
-        msg.append("⚠️ NEEDS IMPROVEMENT: Focus on increasing green coverage and connectivity.")
+        msg.append("⚠️ NEEDS IMPROVEMENT: Increase green and reduce overbuilt areas.")
 
     return "\n".join(msg)
 
 
 # -----------------------------
-# 🚀 Main Inference Wrapper (Fixed JSON Serialization)
+# 🔧 JSON SAFE CONVERSION
 # -----------------------------
-def generate_layout(sketch, green_intensity, building_density, use_canny):
+def make_json_safe(metrics):
+    safe = {}
+    for k, v in metrics.items():
+        try:
+            if isinstance(v, (np.float32, np.float64)):
+                safe[k] = float(v)
+            elif isinstance(v, (np.int32, np.int64)):
+                safe[k] = int(v)
+            else:
+                safe[k] = float(v)
+        except Exception:
+            safe[k] = 0.0
+    return safe
+
+
+# -----------------------------
+# 🚀 MAIN PIPELINE (FIXED)
+# -----------------------------
+def generate_layout(sketch):
     if sketch is None:
         return None, {}, "", None, None
 
     try:
-        # Save temp sketch
+        # Save temp input
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
         tmp_path = tmp.name
         tmp.close()
         sketch.save(tmp_path)
 
-        # Run inference
-        result_img, metrics = run_inference(
-            tmp_path,
-            green_intensity,
-            building_density,
-            use_canny=use_canny
-        )
+        # 🔥 FIX: ONLY pass sketch path (NO canny / sliders)
+        result_img, metrics = run_inference(tmp_path)
 
         if result_img is None or "error" in metrics:
-            return None, metrics, "Inference failed. Check console.", None, None
+            return None, metrics, "Inference failed.", None, None
+
+        # JSON safe
+        metrics = make_json_safe(metrics)
 
         insight = interpret(metrics)
 
-        # Create Radar Chart
+        # -----------------------------
+        # 📊 Radar Chart (FIXED SCALE)
+        # -----------------------------
         fig = None
         try:
-            cats = ["Green", "Road", "1-Density", "Connectivity", "OSR"]
+            cats = ["Green", "Road", "Density", "Connectivity"]
+
             vals = [
-                float(metrics.get("green_coverage", 0)),
-                float(metrics.get("road_coverage", 0)),
-                100 - float(metrics.get("building_density", 0)),
-                100 - float(metrics.get("road_connectivity", 0)) * 10,
-                float(metrics.get("osr_proxy", 0)) * 100
+                metrics.get("green_coverage", 0) * 100,
+                metrics.get("road_coverage", 0) * 100,
+                100 - metrics.get("building_density", 0) * 100,
+                min(metrics.get("road_connectivity", 0) * 2, 100),
             ]
+
             fig = go.Figure()
             fig.add_trace(go.Scatterpolar(r=vals, theta=cats, fill='toself'))
             fig.update_layout(
                 polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
                 showlegend=False,
                 height=420,
-                title="Sustainability Radar Chart"
+                title="Sustainability Radar"
             )
-        except Exception as radar_err:
-            print("Radar chart warning:", radar_err)
+        except Exception as e:
+            print("Radar error:", e)
 
-        # === FIXED: Make metrics JSON serializable ===
+        # -----------------------------
+        # 💾 Save JSON
+        # -----------------------------
         os.makedirs("outputs/results", exist_ok=True)
         json_path = "outputs/results/sustainability_results.json"
 
-        # Convert all numpy types to Python native types
-        serializable_metrics = {}
-        for k, v in metrics.items():
-            if isinstance(v, (np.float32, np.float64)):
-                serializable_metrics[k] = float(v)
-            elif isinstance(v, (np.int32, np.int64)):
-                serializable_metrics[k] = int(v)
-            else:
-                serializable_metrics[k] = v
-
         with open(json_path, "w", encoding="utf-8") as f:
-            json.dump(serializable_metrics, f, indent=2)
+            json.dump(metrics, f, indent=2)
 
-        return result_img, serializable_metrics, insight, fig, json_path
+        return result_img, metrics, insight, fig, json_path
 
     except Exception as e:
-        print("\n❌ ERROR in generate_layout:")
+        print("\n❌ ERROR:")
         traceback.print_exc()
-        return None, {"error": str(e)}, f"Error: {str(e)}", None, None
+        return None, {"error": str(e)}, str(e), None, None
 
 
 # -----------------------------
-# 🎨 UI
+# 🎨 UI (SIMPLIFIED + FIXED)
 # -----------------------------
-with gr.Blocks(title="SustainableUrbanPix2Pix v2.0") as demo:
+with gr.Blocks(title="Cityscapes Pix2Pix Generator") as demo:
 
     gr.Markdown(
-        "# 🌆 SustainableUrbanPix2Pix v2.0\n"
-        "Sketch → Sustainable Urban Layout + Analysis\n"
-        "**100 Epochs • GTX 1050 Ti Optimized**"
+        "# 🌆 Cityscapes Pix2Pix Generator\n"
+        "Upload a **semantic map** → get a **realistic enhanced image + metrics**\n\n"
+        "⚠️ Do NOT use edge images (Canny). Use segmentation maps only."
     )
 
-    with gr.Tabs():
-        with gr.Tab("🎨 Generator"):
-            with gr.Row():
-                with gr.Column(scale=1):
-                    input_image = gr.Image(type="pil", label="Upload High-Contrast Sketch (256×256)")
-                    use_canny = gr.Checkbox(label="Apply Canny Edge Cleaning", value=True)
-                    green_slider = gr.Slider(0, 1, value=0.6, label="Green Intensity")
-                    density_slider = gr.Slider(0, 1, value=0.7, label="Building Density")
+    with gr.Row():
+        with gr.Column():
+            input_image = gr.Image(type="pil", label="Semantic Map Input (256x256)")
+            generate_btn = gr.Button("🚀 Generate", variant="primary")
 
-                    generate_btn = gr.Button("🚀 Generate Sustainable Layout", variant="primary")
+        with gr.Column():
+            output_image = gr.Image(label="Generated Output")
 
-                with gr.Column(scale=1):
-                    output_image = gr.Image(label="Generated Sustainable Urban Layout")
+    with gr.Row():
+        metrics_output = gr.JSON(label="Metrics")
 
-        with gr.Tab("🎯 Metrics Dashboard"):
-            with gr.Row():
-                with gr.Column():
-                    metrics_output = gr.JSON(label="Urban Metrics")
-                with gr.Column():
-                    insight_output = gr.Textbox(label="🧠 Planning Insights", lines=9)
-            
-            with gr.Row():
-                radar_plot = gr.Plot(label="Sustainability Radar Chart")
-            
-            with gr.Row():
-                download_json = gr.File(label="📥 Download Results as JSON")
+    with gr.Row():
+        insight_output = gr.Textbox(label="Insights", lines=8)
+
+    with gr.Row():
+        radar_plot = gr.Plot(label="Radar Chart")
+
+    with gr.Row():
+        download_json = gr.File(label="Download JSON")
 
     generate_btn.click(
         generate_layout,
-        inputs=[input_image, green_slider, density_slider, use_canny],
+        inputs=[input_image],
         outputs=[output_image, metrics_output, insight_output, radar_plot, download_json]
     )
 
 
 if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0", server_port=7860, share=False)
+    demo.launch(server_name="0.0.0.0", server_port=7860)

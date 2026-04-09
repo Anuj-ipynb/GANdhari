@@ -7,46 +7,65 @@ from src.training.trainer import Trainer
 
 
 def main():
-    parser = argparse.ArgumentParser(description="SustainableUrbanPix2Pix Fine-Tuning")
-    
-    parser.add_argument("--additional_epochs", type=int, default=30,
-                        help="Number of additional epochs to fine-tune (recommended)")
-    parser.add_argument("--lr", type=float, default=0.00005,
-                        help="Learning rate for fine-tuning")
-    parser.add_argument('--tiny', action='store_true', 
-                        help='Use tiny mode (ngf=32)')
-    parser.add_argument('--config', default='config.yaml', help='Config file path')
+    parser = argparse.ArgumentParser(description="Pix2Pix Training (Resume Enabled)")
+
+    parser.add_argument("--config", default="config.yaml")
+    parser.add_argument("--epochs", type=int, default=10)
+    parser.add_argument("--lr", type=float, default=0.00005)
+    parser.add_argument("--tiny", action="store_true")
 
     args = parser.parse_args()
 
+    # -----------------------------
     # Load config
-    with open(args.config, 'r') as f:
+    # -----------------------------
+    with open(args.config, "r") as f:
         config = yaml.safe_load(f)
 
-    # Apply overrides
-    config['lr'] = args.lr
+    # -----------------------------
+    # Overrides
+    # -----------------------------
+    config["epochs"] = args.epochs
+    config["lr"] = args.lr
+
     if args.tiny:
-        config['ngf'] = 32
-        config['ndf'] = 32
-        print("⚡ Tiny Mode Enabled (ngf=32, ndf=32)")
+        config["ngf"] = 32
+        config["ndf"] = 32
+        print("⚡ Tiny mode enabled")
 
-    # Calculate total epochs = current checkpoint epoch + additional_epochs 
-    # We assume checkpoint is at epoch 100
-    current_epoch = 100   # Change this if your checkpoint is at different epoch
-    total_epochs = current_epoch + args.additional_epochs
+    # -----------------------------
+    # ✅ RESUME LOGIC (FIXED)
+    # -----------------------------
+    ckpt_path = os.path.join(
+        config["checkpoint_dir"],
+        config["resume_checkpoint"]
+    )
 
-    config['epochs'] = total_epochs
+    if os.path.exists(ckpt_path):
+        config["resume"] = True
+        config["resume_path"] = ckpt_path
+        mode = "RESUME"
+    else:
+        config["resume"] = False
+        config["resume_path"] = None
+        mode = "FROM SCRATCH"
+        print("⚠️ Checkpoint not found, starting fresh")
 
-    print("=" * 70)
-    print("🚀 SustainableUrbanPix2Pix Fine-Tuning")
-    print(f"Resuming from epoch {current_epoch}")
-    print(f"Additional epochs : {args.additional_epochs}")
-    print(f"Total epochs      : {total_epochs}")
-    print(f"Learning Rate     : {config['lr']}")
-    print(f"λ_L1              : {config.get('lambda_l1', 120)}")
-    print(f"λ_Perc            : {config.get('lambda_perc', 15)}")
-    print("=" * 70)
+    # -----------------------------
+    # Debug info
+    # -----------------------------
+    print("=" * 60)
+    print("🚀 TRAINING START")
+    print(f"Epochs        : {config['epochs']}")
+    print(f"Learning Rate : {config['lr']}")
+    print(f"Batch Size    : {config['batch_size']}")
+    print(f"ngf           : {config['ngf']}")
+    print(f"Mode          : {mode}")
+    print("=" * 60)
 
+    # -----------------------------
+    # Start training
+    # -----------------------------
     trainer = Trainer(config)
     trainer.train()
 
