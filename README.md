@@ -1,4 +1,4 @@
-# 🌆 SustainableUrbanPix2Pix
+# 🌆 Pix2Pix CityScape
 
 An AI-powered urban planning assistant that converts **semantic city layouts into realistic images** and evaluates their **sustainability** using computer vision and GANs.
 
@@ -176,16 +176,3 @@ This project demonstrates how GANs can be used not just for image generation, bu
 
 ---
 
-## 👨‍💻 Author
-
-Developed as an academic project using deep learning and computer vision techniques.
-
----
-
-## ⭐ Acknowledgements
-
-* Cityscapes Dataset
-* Pix2Pix (Isola et al.)
-* OpenCV & PyTorch
-
----
